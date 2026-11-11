@@ -1,15 +1,73 @@
 import 'package:flutter/material.dart';
 
+import '../model/usercomment.dart';
 import '../model/userpost.dart';
+import '../utils/post_sharing.dart';
 import 'fallback_image.dart';
 
-class PostDetailView extends StatelessWidget {
+class PostDetailView extends StatefulWidget {
   const PostDetailView({super.key, required this.post});
 
   final Userpost post;
 
   @override
+  State<PostDetailView> createState() => _PostDetailViewState();
+}
+
+class _PostDetailViewState extends State<PostDetailView> {
+  final TextEditingController _commentController = TextEditingController();
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  void _addComment() {
+    final text = _commentController.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() {
+      widget.post.comments.add(
+        Usercomment(
+          commenterImg: 'assets/images7.jpg',
+          commenterName: 'You',
+          commentTime: 'Just now',
+          commentContent: text,
+        ),
+      );
+      widget.post.numcomments = (int.parse(widget.post.numcomments) + 1)
+          .toString();
+    });
+    _commentController.clear();
+  }
+
+  void _toggleLike() {
+    setState(() => widget.post.isLiked = !widget.post.isLiked);
+  }
+
+  Future<void> _sharePost() async {
+    try {
+      final shared = await sharePost(widget.post);
+      if (shared && mounted) {
+        setState(() {
+          widget.post.numshare =
+              (int.parse(widget.post.numshare) + 1).toString();
+        });
+      }
+    } on Exception catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to share post: $error')),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final post = widget.post;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F0ED),
       appBar: AppBar(
@@ -61,16 +119,24 @@ class PostDetailView extends StatelessWidget {
                 icon: post.isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
                 label: 'Like',
                 color: post.isLiked ? Colors.blue : Colors.grey,
+                onTap: _toggleLike,
               ),
               const _PostDetailAction(
                 icon: Icons.mode_comment_outlined,
                 label: 'Comment',
               ),
-              const _PostDetailAction(
+              _PostDetailAction(
                 icon: Icons.share_outlined,
                 label: 'Share',
+                onTap: _sharePost,
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${post.numshare} Shares',
+            textAlign: TextAlign.end,
+            style: const TextStyle(color: Colors.grey),
           ),
           const Divider(height: 24),
           Text(
@@ -120,6 +186,32 @@ class PostDetailView extends StatelessWidget {
                 ],
               ),
             ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _commentController,
+                  textCapitalization: TextCapitalization.sentences,
+                  minLines: 1,
+                  maxLines: 4,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _addComment(),
+                  decoration: const InputDecoration(
+                    hintText: 'Write a comment...',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: 'Add comment',
+                onPressed: _addComment,
+                icon: const Icon(Icons.send),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -130,17 +222,19 @@ class _PostDetailAction extends StatelessWidget {
   const _PostDetailAction({
     required this.icon,
     required this.label,
+    this.onTap,
     this.color = Colors.grey,
   });
 
   final IconData icon;
   final String label;
+  final VoidCallback? onTap;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () {},
+      onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         child: Row(

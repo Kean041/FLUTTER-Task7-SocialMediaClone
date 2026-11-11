@@ -8,7 +8,7 @@ class Userpost {
   final String posting;
   String get postimg => posting;
   String numcomments;
-  final String numshare;
+  String numshare;
   bool isLiked;
   List<Usercomment> comments;
 

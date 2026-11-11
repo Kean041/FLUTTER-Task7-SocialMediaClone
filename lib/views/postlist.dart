@@ -1,13 +1,40 @@
 import 'package:flutter/material.dart';
 
 import '../model/userpost.dart';
+import '../utils/post_sharing.dart';
 import 'fallback_image.dart';
 import 'postdetail.dart';
 
-class PostList extends StatelessWidget {
+class PostList extends StatefulWidget {
   const PostList({super.key, required this.userposts});
 
   final List<Userpost> userposts;
+
+  @override
+  State<PostList> createState() => _PostListState();
+}
+
+class _PostListState extends State<PostList> {
+  void _toggleLike(Userpost post) {
+    setState(() => post.isLiked = !post.isLiked);
+  }
+
+  Future<void> _sharePost(Userpost post) async {
+    try {
+      final shared = await sharePost(post);
+      if (shared && mounted) {
+        setState(() {
+          post.numshare = (int.parse(post.numshare) + 1).toString();
+        });
+      }
+    } on Exception catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Unable to share post: $error')));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,16 +42,17 @@ class PostList extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate((context, index) {
-          final post = userposts[index];
+          final post = widget.userposts[index];
 
           return InkWell(
             borderRadius: BorderRadius.circular(16),
-            onTap: () {
-              Navigator.of(context).push(
+            onTap: () async {
+              await Navigator.of(context).push<void>(
                 MaterialPageRoute<void>(
                   builder: (context) => PostDetailView(post: post),
                 ),
               );
+              if (mounted) setState(() {});
             },
             child: Container(
               margin: const EdgeInsets.only(bottom: 18),
@@ -93,14 +121,16 @@ class PostList extends StatelessWidget {
                             : Icons.thumb_up_outlined,
                         label: 'Like',
                         color: post.isLiked ? Colors.blue : Colors.grey,
+                        onTap: () => _toggleLike(post),
                       ),
                       const _PostAction(
                         icon: Icons.chat_bubble_outline,
                         label: 'Comment',
                       ),
-                      const _PostAction(
+                      _PostAction(
                         icon: Icons.share_outlined,
                         label: 'Share',
+                        onTap: () => _sharePost(post),
                       ),
                     ],
                   ),
@@ -122,7 +152,7 @@ class PostList extends StatelessWidget {
               ),
             ),
           );
-        }, childCount: userposts.length),
+        }, childCount: widget.userposts.length),
       ),
     );
   }
@@ -132,17 +162,19 @@ class _PostAction extends StatelessWidget {
   const _PostAction({
     required this.icon,
     required this.label,
+    this.onTap,
     this.color = Colors.grey,
   });
 
   final IconData icon;
   final String label;
+  final VoidCallback? onTap;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () {},
+      onTap: onTap,
       child: Row(
         children: [
           Icon(icon, color: color, size: 18),
